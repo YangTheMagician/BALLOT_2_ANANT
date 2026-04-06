@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Hostel Hero: Campus Action</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#060612;
+  display:flex; align-items:center; justify-content:center;
+  width:100vw; height:100vh; overflow:hidden;
+  font-family:'Segoe UI',Arial,sans-serif;
+  touch-action:manipulation;
+}
+#gameWrapper {
+  position:relative; width:100%; height:100%;
+  max-width:960px; cursor:crosshair;
+}
+canvas { display:block; width:100% !important; height:100% !important; }
+.screen {
+  display:none; position:absolute; inset:0;
+  flex-direction:column; align-items:center; justify-content:center; z-index:10;
+}
+.screen.active { display:flex; }
+#startScreen { background:rgba(0,0,0,0.85); }
+#startScreen .poster-bg {
+  position:absolute; inset:0;
+  background:url('image_0.png') center/cover no-repeat;
+  opacity:0.4; z-index:0;
+}
+#startScreen .content {
+  position:relative; z-index:1;
+  display:flex; flex-direction:column; align-items:center; gap:15px;
+  padding:20px; max-width:500px; width:100%;
+}
+.game-title {
+  font-size:clamp(24px,6vw,46px); font-weight:900; color:#00f5d4;
+  letter-spacing:3px; text-align:center; text-shadow:0 0 24px #00f5d4aa;
+}
+.game-subtitle {
+  font-size:clamp(11px,2.5vw,16px); color:#ffd700;
+  font-weight:700; letter-spacing:4px; text-align:center;
+}
+.badge {
+  background:rgba(10,10,60,0.9); border:2px solid #00f5d4;
+  border-radius:12px; padding:12px 28px; text-align:center;
+}
+.badge .name { font-size:clamp(17px,4vw,26px); font-weight:900; color:#fff; }
+.badge .sub  { font-size:clamp(10px,2vw,13px); color:#ffd700; margin-top:4px; }
+.infobox {
+  background:rgba(0,0,0,0.78); border:1.5px solid rgba(0,245,212,0.35);
+  border-radius:12px; padding:14px 20px; text-align:center;
+}
+.infobox p { color:#ccc; font-size:clamp(11px,2.2vw,13.5px); line-height:1.65; }
+.infobox .hl { color:#00f5d4; font-weight:700; }
+.infobox .warn { color:#ff6666; font-weight:700; }
+.btn {
+  padding:clamp(11px,2.5vw,16px) clamp(28px,6vw,52px);
+  font-size:clamp(14px,3vw,19px); font-weight:900;
+  letter-spacing:2px; border:none; border-radius:8px;
+  cursor:pointer; transition:transform .1s;
+}
+.btn:active { transform:scale(.95); }
+.btn-go    { background:linear-gradient(135deg,#00f5d4,#008fcc); color:#001; }
+.btn-retry { background:linear-gradient(135deg,#ff4444,#aa1100); color:#fff; }
+.btn-share { background:linear-gradient(135deg,#ffd700,#ff8c00); color:#001; }
+#hud {
+  position:absolute; top:0; left:0; width:100%;
+  display:none; justify-content:space-between; align-items:flex-start;
+  padding:10px 14px; z-index:5; pointer-events:none;
+}
+#hud.on { display:flex; }
+.hud-pill {
+  background:rgba(0,0,0,0.7); border:1px solid rgba(0,245,212,0.4);
+  border-radius:8px; padding:6px 12px;
+  color:#fff; font-size:clamp(10px,1.8vw,14px); font-weight:700;
+}
+.hud-pill span { color:#00f5d4; }
+#shootHint {
+  position:absolute; bottom:60px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.6); border:1px solid rgba(0,245,212,0.3);
+  border-radius:20px; padding:6px 18px;
+  color:rgba(255,255,255,0.65); font-size:clamp(10px,1.8vw,13px);
+  z-index:5; pointer-events:none; white-space:nowrap;
+  animation:fadeHint 3.5s forwards 1.5s;
+}
+@keyframes fadeHint { to { opacity:0; } }
+#loseScreen { background:rgba(18,0,0,0.96); }
+#loseScreen .content {
+  display:flex; flex-direction:column; align-items:center; gap:20px; padding:24px;
+}
+.lose-head { font-size:clamp(13px,2.8vw,20px); color:#ff9999; letter-spacing:2px; text-align:center; }
+.lose-main {
+  font-size:clamp(22px,6vw,46px); font-weight:900; color:#ff3333;
+  text-shadow:0 0 30px #ff3333bb; text-align:center; line-height:1.25;
+}
+.score-line { font-size:clamp(14px,2.8vw,20px); color:#ffd700; font-weight:700; }
+#winScreen { background:rgba(0,8,0,0.92); }
+#winScreen .mfbg {
+  position:absolute; inset:0;
+  background:url('image_1.png') center/cover no-repeat;
+  opacity:0.28; z-index:0;
+}
+#winScreen .content {
+  position:relative; z-index:1;
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  padding:20px; text-align:center; max-width:520px;
+}
+.win-title {
+  font-size:clamp(20px,5vw,36px); font-weight:900; color:#00ff99;
+  text-shadow:0 0 22px #00ff9977; line-height:1.3;
+}
+.win-sub { font-size:clamp(11px,2vw,15px); color:#aaffcc; line-height:1.6; }
+.resolved { display:flex; flex-wrap:wrap; gap:7px; justify-content:center; }
+.rtag {
+  background:rgba(0,255,100,0.12); border:1px solid rgba(0,255,100,0.3);
+  border-radius:20px; padding:4px 12px; font-size:12px; color:#aaffcc;
+}
+.rtag::before { content:"✔ "; color:#00ff99; }
+</style>
+</head>
+<body>
+<div id="gameWrapper">
+  <canvas id="gc"></canvas>
+  <div id="hud">
+    <div class="hud-pill">🗳️ VOTES: <span id="hudScore">0</span></div>
+    <div class="hud-pill">📍 <span id="hudLoc">PC Ray 🏥</span></div>
+  </div>
+  <div id="shootHint" style="display:none">TAP · CLICK · SPACE to shoot</div>
+
+  <div id="startScreen" class="screen active">
+    <div class="poster-bg"></div>
+    <div class="content">
+      <div class="game-title">🏛️ HOSTEL HERO</div>
+      <div class="game-subtitle">CAMPUS ACTION</div>
+      <div class="badge">
+        <div class="name">👨‍💼 ANANT SINGHAL</div>
+        <div class="sub">BALLOT NO. 2 · IIT (BHU) STUDENT PARLIAMENT</div>
+      </div>
+      <div class="infobox">
+        <p>
+          <span class="hl">TAP · CLICK · SPACE</span> to fire Manifesto Blasts.<br>
+          Destroy campus problems before they reach students!<br><br>
+          Route: <span class="hl">PC Ray → Limbdi → Morvi → Rajputana → Aryabhatta → Satish Dhawan → GSMC → PC Ray 🏁</span><br><br>
+          <span class="warn">If ANY problem passes you — it's over!</span>
+        </p>
+      </div>
+      <button class="btn btn-go" id="startBtn">🚀 START MISSION</button>
+    </div>
+  </div>
+
+  <div id="loseScreen" class="screen">
+    <div class="content">
+      <div class="lose-head">⚠️ Mission Failed</div>
+      <div class="lose-main">A problem has<br>reached the students</div>
+      <div class="score-line" id="loseScore">Votes collected: 0</div>
+      <button class="btn btn-retry" id="retryBtn">🔄 TRY AGAIN</button>
+    </div>
+  </div>
+
+  <div id="winScreen" class="screen">
+    <div class="mfbg"></div>
+    <div class="content">
+      <div class="win-title">🏁 PC RAY REACHED!<br>Campus Problems: RESOLVED.</div>
+      <div class="win-sub">You completed the full hostel circuit and delivered every promise!</div>
+      <div id="resolvedList" class="resolved"></div>
+      <div class="score-line" id="winScore">Total Votes: 0</div>
+      <button class="btn btn-share" id="shareBtn">📤 SHARE VICTORY</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gc');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('gameWrapper');
+
+function resize(){
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+resize();
+window.addEventListener('resize', ()=>{ resize(); if(gState==='play') initBg(); });
+
+/* AUDIO */
+let AC=null;
+function getAC(){ if(!AC) AC=new(window.AudioContext||window.webkitAudioContext)(); return AC; }
+function tone(freq,type,dur,vol=0.26){
+  try{
+    const ac=getAC(),o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+dur);
+    o.start(); o.stop(ac.currentTime+dur);
+  }catch(e){}
+}
+const sfx={
+  shoot:()=>tone(900,'sawtooth',.11,.15),
+  hit  :()=>{tone(520,'square',.14,.2);setTimeout(()=>tone(260,'square',.18,.12),55);},
+  lose :()=>{[380,280,170].forEach((f,i)=>setTimeout(()=>tone(f,'sawtooth',.3,.27),i*140));},
+  win  :()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,'sine',.4,.3),i*110));},
+  start:()=>{[300,500,700].forEach((f,i)=>setTimeout(()=>tone(f,'triangle',.2,.2),i*70));},
+};
+
+/* ROUTE */
+const ROUTE=[
+  {name:'PC Ray 🏥',        th:0},
+  {name:'Limbdi 🏛️',        th:300},
+  {name:'Morvi 🏰',         th:600},
+  {name:'Rajputana 🛡️',     th:900},
+  {name:'Aryabhatta 🔭',    th:1200},
+  {name:'Satish Dhawan 🚀', th:1500},
+  {name:'GSMC 🏫',          th:1800},
+  {name:'PC Ray FINISH 🏁', th:2100},
+];
+
+/* OBSTACLES */
+const OBS=[
+  {e:'🕳️',l:'POTHOLE',           pts:10, col:'#7a3b00',w:82, h:42},
+  {e:'📶',l:'NO WIFI',            pts:50, col:'#aa3300',w:105,h:52},
+  {e:'❄️',l:'BROKEN AC',          pts:50, col:'#006699',w:105,h:52},
+  {e:'🛗',l:'BROKEN LIFT',        pts:100,col:'#553388',w:115,h:62},
+  {e:'📂',l:'CORRUPTION',         pts:100,col:'#774400',w:122,h:62},
+  {e:'🛤️',l:'BAD RUNNING TRACK',  pts:75, col:'#445500',w:138,h:58},
+  {e:'⚽',l:'POOR SPORTS EQUIP',  pts:75, col:'#004d1a',w:132,h:58},
+  {e:'🏟️',l:'BAD SPORTS FACILITY',pts:100,col:'#002b55',w:148,h:66},
+  {e:'💡',l:'POWER CUT',          pts:50, col:'#665500',w:105,h:52},
+  {e:'🚰',l:'WATER SHORTAGE',     pts:50, col:'#005566',w:115,h:52},
+  {e:'🗑️',l:'POOR HYGIENE',       pts:75, col:'#3d3d00',w:112,h:58},
+  {e:'📚',l:'LIBRARY CLOSED',     pts:75, col:'#3b1a00',w:125,h:58},
+  {e:'🚧',l:'BROKEN ROADS',       pts:50, col:'#7a4400',w:105,h:52},
+  {e:'🔒',l:'HOSTEL CURFEW',      pts:100,col:'#2a003b',w:122,h:62},
+  {e:'🏋️',l:'GYM NEGLECTED',      pts:75, col:'#002e1a',w:125,h:58},
+  {e:'🍽️',l:'BAD MESS FOOD',      pts:50, col:'#5c2200',w:115,h:52},
+  {e:'🚌',l:'BUS IRREGULAR',      pts:75, col:'#1a1a66',w:130,h:58},
+];
+
+/* BUILDINGS */
+const BLDGS=[
+  {name:'PC Ray Hospital',  color:'#0d1a2e',accent:'#1a4a7a',h:95, w:130},
+  {name:'Limbdi Hostel',    color:'#1a0d2e',accent:'#4a1a7a',h:105,w:120},
+  {name:'Morvi Hostel',     color:'#0d2e1a',accent:'#1a7a4a',h:100,w:125},
+  {name:'Rajputana Hostel', color:'#2e1a0d',accent:'#7a4a1a',h:110,w:115},
+  {name:'Aryabhatta Hall',  color:'#0d2e2e',accent:'#1a7a7a',h:95, w:130},
+  {name:'Satish Dhawan',    color:'#2e2e0d',accent:'#7a7a1a',h:115,w:120},
+  {name:'GSMC Block',       color:'#2e0d1a',accent:'#7a1a4a',h:100,w:130},
+  {name:'Central Library',  color:'#1a1a0d',accent:'#5a5a1a',h:120,w:140},
+  {name:'Main Canteen',     color:'#2e1800',accent:'#884400',h:75, w:110},
+  {name:'Sports Complex',   color:'#001a00',accent:'#1a6600',h:80, w:160},
+  {name:'Admin Block',      color:'#1a1a2e',accent:'#3a3a8a',h:130,w:140},
+  {name:'Workshop',         color:'#1a0d00',accent:'#663300',h:85, w:110},
+];
+
+/* STATE */
+let gState='start';
+let score=0,locIdx=0;
+let obstacles=[],blasts=[],particles=[],popupsList=[];
+let bgBlocks=[],billboards=[];
+let frame=0,spawnTimer=0,spawnInterval=110;
+let playerBob=0,animId=null;
+let destroyedTypes={};
+
+/* IMAGES */
+const img0=new Image(); img0.src='image_0.png';
+const img1=new Image(); img1.src='image_1.png';
+
+/* BACKGROUND */
+function initBg(){
+  bgBlocks=[];
+  billboards=[];
+  let x=canvas.width*0.25;
+  while(x<canvas.width*3.2){
+    const b=BLDGS[Math.floor(Math.random()*BLDGS.length)];
+    const sc=0.8+Math.random()*0.5;
+    const bw=b.w*sc, bh=b.h*sc;
+    bgBlocks.push({x,y:canvas.height-38-bh,w:bw,h:bh,color:b.color,accent:b.accent,name:b.name,speed:0.48+Math.random()*0.32});
+    x+=bw+12+Math.random()*38;
+  }
+  // Place 7 billboard posters (image_0 and image_1 randomly)
+  for(let i=0;i<7;i++){
+    billboards.push({
+      x:canvas.width*0.4+Math.random()*canvas.width*2.5,
+      y:canvas.height-38-(75+Math.random()*55),
+      w:85+Math.random()*55, h:58+Math.random()*38,
+      img:Math.random()<0.5?img0:img1,
+      speed:0.32+Math.random()*0.22
+    });
+  }
+}
+
+function updateBg(){
+  bgBlocks.forEach(b=>{
+    b.x-=b.speed;
+    if(b.x+b.w<-10){
+      const last=bgBlocks.reduce((m,bb)=>bb.x>m?bb.x:m,0);
+      const t=BLDGS[Math.floor(Math.random()*BLDGS.length)];
+      const sc=0.8+Math.random()*0.5;
+      b.w=t.w*sc; b.h=t.h*sc;
+      b.x=last+b.w+12+Math.random()*38;
+      b.y=canvas.height-38-b.h;
+      b.color=t.color; b.accent=t.accent; b.name=t.name;
+    }
+  });
+  billboards.forEach(b=>{
+    b.x-=b.speed;
+    if(b.x+b.w<-10){
+      const last=billboards.reduce((m,bb)=>bb.x>m?bb.x:m,0);
+      b.x=last+90+Math.random()*canvas.width*0.45;
+      b.img=Math.random()<0.5?img0:img1;
+    }
+  });
+}
+
+function drawBg(){
+  // Sky
+  const sky=ctx.createLinearGradient(0,0,0,canvas.height);
+  sky.addColorStop(0,'#04041a'); sky.addColorStop(0.65,'#080820'); sky.addColorStop(1,'#121030');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Stars
+  for(let i=0;i<70;i++){
+    const sx=((i*139+frame*0.018)%canvas.width);
+    const sy=(i*57)%(canvas.height*0.52);
+    ctx.globalAlpha=0.22+0.5*Math.sin(frame*0.04+i*1.3);
+    ctx.fillStyle='#fff'; ctx.fillRect(sx,sy,1.5,1.5);
+  }
+  ctx.globalAlpha=1;
+
+  // Billboards (image posters on poles)
+  billboards.forEach(b=>{
+    // Pole
+    ctx.fillStyle='#444';
+    ctx.fillRect(b.x+b.w/2-3, b.y+b.h, 6, canvas.height-38-b.y-b.h);
+    // Frame border
+    ctx.fillStyle='#1a1a1a';
+    ctx.fillRect(b.x-4,b.y-4,b.w+8,b.h+8);
+    // Image
+    if(b.img.complete&&b.img.naturalWidth){
+      ctx.drawImage(b.img,b.x,b.y,b.w,b.h);
+      // slight dark tint so it reads as background
+      ctx.globalAlpha=0.22; ctx.fillStyle='#000';
+      ctx.fillRect(b.x,b.y,b.w,b.h); ctx.globalAlpha=1;
+    } else {
+      ctx.fillStyle='#1a1a3a'; ctx.fillRect(b.x,b.y,b.w,b.h);
+      ctx.fillStyle='#00f5d4'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+      ctx.fillText('ANANT #2',b.x+b.w/2,b.y+b.h/2+4);
+    }
+    // Glowing border
+    ctx.strokeStyle='rgba(0,245,212,0.5)'; ctx.lineWidth=2;
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+  });
+
+  // Buildings
+  bgBlocks.forEach(b=>{
+    // Main body
+    ctx.fillStyle=b.color; ctx.fillRect(b.x,b.y,b.w,b.h);
+    // Accent top strip
+    ctx.fillStyle=b.accent; ctx.fillRect(b.x,b.y,b.w,Math.max(7,b.h*0.09));
+
+    // Windows
+    const wCols=Math.floor(b.w/19), wRows=Math.floor((b.h-28)/19);
+    for(let r=0;r<wRows;r++){
+      for(let c=0;c<wCols;c++){
+        const wx=b.x+6+c*19, wy=b.y+Math.max(12,b.h*0.14)+r*19;
+        const lit=Math.sin(wx*2.1+wy*3.5+frame*0.007)>0.05;
+        ctx.fillStyle=lit?'rgba(255,215,90,0.55)':'rgba(90,110,170,0.1)';
+        ctx.fillRect(wx,wy,10,11);
+      }
+    }
+
+    // Name banner at bottom
+    const bannerH=Math.max(17,b.h*0.2);
+    ctx.fillStyle=b.accent;
+    ctx.fillRect(b.x, b.y+b.h-bannerH, b.w, bannerH);
+    // Banner text
+    const fs=Math.max(8,Math.min(b.w*0.09,13.5));
+    ctx.font=`bold ${fs}px sans-serif`; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,0.85)'; ctx.lineWidth=2.5;
+    const txt=b.name.length>15?b.name.substring(0,14)+'…':b.name;
+    const ty=b.y+b.h-bannerH/2+fs*0.38;
+    ctx.strokeText(txt, b.x+b.w/2, ty);
+    ctx.fillStyle='#fff';
+    ctx.fillText(txt, b.x+b.w/2, ty);
+  });
+
+  // Ground
+  ctx.fillStyle='#0e0b22'; ctx.fillRect(0,canvas.height-38,canvas.width,38);
+  // Road dashes
+  ctx.strokeStyle='rgba(255,200,0,0.3)'; ctx.lineWidth=3;
+  ctx.setLineDash([40,40]); ctx.lineDashOffset=-(frame*2.2)%80;
+  ctx.beginPath(); ctx.moveTo(0,canvas.height-22); ctx.lineTo(canvas.width,canvas.height-22); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* PLAYER */
+function drawPlayer(){
+  const px=canvas.width*0.13;
+  const es=Math.max(38,canvas.width*0.058);
+  const py=canvas.height-38-es*0.85+playerBob;
+  // Shadow
+  ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000';
+  ctx.beginPath(); ctx.ellipse(px,canvas.height-40,26,7,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+  // Emoji
+  ctx.save(); ctx.shadowColor='#00f5d4'; ctx.shadowBlur=18;
+  ctx.font=`${es}px serif`; ctx.textAlign='center';
+  ctx.fillText('👨‍💼',px,py); ctx.shadowBlur=0;
+  // Name tag
+  const ns=Math.max(10,canvas.width*0.019);
+  ctx.font=`900 ${ns}px sans-serif`; ctx.textAlign='center';
+  ctx.strokeStyle='#000'; ctx.lineWidth=3;
+  ctx.strokeText('ANANT',px,py+es*0.82);
+  ctx.fillStyle='#ffd700'; ctx.fillText('ANANT',px,py+es*0.82);
+  ctx.restore();
+}
+
+/* BLASTS */
+function spawnBlast(){
+  const px=canvas.width*0.13+28;
+  const es=Math.max(38,canvas.width*0.058);
+  const py=canvas.height-38-es*0.85+playerBob-8;
+  blasts.push({x:px,y:py,spd:canvas.width*0.016});
+  sfx.shoot();
+}
+function updateBlasts(){ blasts.forEach(b=>b.x+=b.spd); blasts=blasts.filter(b=>b.x<canvas.width+30); }
+function drawBlasts(){
+  blasts.forEach(b=>{
+    const r=Math.max(7,canvas.width*0.013);
+    ctx.save(); ctx.shadowColor='#00f5d4'; ctx.shadowBlur=16;
+    const g=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,r);
+    g.addColorStop(0,'#fff'); g.addColorStop(0.35,'#00f5d4'); g.addColorStop(1,'rgba(0,245,212,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(b.x,b.y,r,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0; ctx.restore();
+  });
+}
+
+/* OBSTACLES */
+function spawnObstacle(){
+  const t=OBS[Math.floor(Math.random()*OBS.length)];
+  const sc=Math.min(canvas.width/480,1.5);
+  const spd=canvas.width*0.004+(score/2000)*canvas.width*0.003;
+  obstacles.push({x:canvas.width+20,y:canvas.height-38-t.h*sc,w:t.w*sc,h:t.h*sc,spd,col:t.col,e:t.e,l:t.l,pts:t.pts});
+}
+function updateObstacles(){
+  for(let i=obstacles.length-1;i>=0;i--){
+    obstacles[i].x-=obstacles[i].spd;
+    if(obstacles[i].x+obstacles[i].w<0){ obstacles.splice(i,1); triggerLose(); return; }
+  }
+}
+function drawObstacles(){
+  obstacles.forEach(ob=>{
+    ctx.save();
+    ctx.shadowColor=ob.col; ctx.shadowBlur=12;
+    ctx.fillStyle=ob.col;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(ob.x,ob.y,ob.w,ob.h,7); else ctx.rect(ob.x,ob.y,ob.w,ob.h);
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.22)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.shadowBlur=0;
+    // Emoji
+    const es2=Math.max(13,ob.h*0.46);
+    ctx.font=`${es2}px serif`; ctx.textAlign='center';
+    ctx.fillText(ob.e,ob.x+ob.w*0.27,ob.y+ob.h*0.65);
+    // Label
+    const ls=Math.max(7,ob.h*0.21);
+    ctx.font=`bold ${ls}px sans-serif`; ctx.textAlign='center';
+    ctx.strokeStyle='rgba(0,0,0,0.75)'; ctx.lineWidth=2.5;
+    ctx.strokeText(ob.l,ob.x+ob.w*0.65,ob.y+ob.h*0.5);
+    ctx.fillStyle='#fff'; ctx.fillText(ob.l,ob.x+ob.w*0.65,ob.y+ob.h*0.5);
+    // Points
+    ctx.strokeText(`+${ob.pts}`,ob.x+ob.w*0.65,ob.y+ob.h*0.76);
+    ctx.fillStyle='#ffd700'; ctx.fillText(`+${ob.pts}`,ob.x+ob.w*0.65,ob.y+ob.h*0.76);
+    ctx.restore();
+  });
+}
+
+/* PARTICLES */
+function spawnParticles(x,y,col){
+  for(let i=0;i<18;i++){
+    const a=Math.random()*Math.PI*2,s=2+Math.random()*5;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,life:1,col,r:3+Math.random()*4});
+  }
+}
+function updateParticles(){ particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=0.14;p.life-=0.032;}); particles=particles.filter(p=>p.life>0); }
+function drawParticles(){ particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();}); ctx.globalAlpha=1; }
+
+/* POPUPS */
+function spawnPopup(x,y,text){ popupsList.push({x,y,text,life:1}); }
+function updatePopups(){ popupsList.forEach(p=>{p.y-=1.3;p.life-=0.024;}); popupsList=popupsList.filter(p=>p.life>0); }
+function drawPopups(){
+  popupsList.forEach(p=>{
+    ctx.globalAlpha=p.life;
+    const fs=Math.max(13,canvas.width*0.026);
+    ctx.font=`bold ${fs}px sans-serif`; ctx.textAlign='center';
+    ctx.strokeStyle='#000'; ctx.lineWidth=3;
+    ctx.strokeText(p.text,p.x,p.y); ctx.fillStyle='#ffd700'; ctx.fillText(p.text,p.x,p.y);
+  });
+  ctx.globalAlpha=1;
+}
+
+/* COLLISION */
+function checkCollisions(){
+  outer: for(let bi=blasts.length-1;bi>=0;bi--){
+    const b=blasts[bi];
+    for(let oi=obstacles.length-1;oi>=0;oi--){
+      const ob=obstacles[oi];
+      if(b.x>ob.x&&b.x<ob.x+ob.w&&b.y>ob.y&&b.y<ob.y+ob.h){
+        score+=ob.pts;
+        document.getElementById('hudScore').textContent=score;
+        spawnParticles(ob.x+ob.w/2,ob.y+ob.h/2,ob.col);
+        spawnPopup(ob.x+ob.w/2,ob.y,`+${ob.pts}`);
+        destroyedTypes[ob.l]=(destroyedTypes[ob.l]||0)+1;
+        obstacles.splice(oi,1); blasts.splice(bi,1);
+        sfx.hit(); updateLoc();
+        continue outer;
+      }
+    }
+  }
+}
+
+function updateLoc(){
+  let ni=0;
+  for(let i=0;i<ROUTE.length;i++) if(score>=ROUTE[i].th) ni=i;
+  if(ni!==locIdx){ locIdx=ni; document.getElementById('hudLoc').textContent=ROUTE[locIdx].name; if(locIdx===ROUTE.length-1) setTimeout(triggerWin,800); }
+}
+
+function trySpawn(){
+  spawnTimer++;
+  spawnInterval=Math.max(50,110-Math.floor(score/80)*4);
+  if(spawnTimer>=spawnInterval){
+    spawnTimer=0; spawnObstacle();
+    if(score>400&&Math.random()<0.22) setTimeout(()=>{if(gState==='play') spawnObstacle();},700);
+  }
+}
+
+/* GAME LOOP */
+function loop(){
+  if(gState!=='play') return;
+  frame++;
+  playerBob=Math.sin(frame*0.16)*5;
+  updateBg(); drawBg(); drawPlayer();
+  trySpawn(); updateObstacles(); updateBlasts(); checkCollisions();
+  updateParticles(); updatePopups();
+  drawObstacles(); drawBlasts(); drawParticles(); drawPopups();
+  animId=requestAnimationFrame(loop);
+}
+
+/* SHOW SCREEN */
+function showScreen(s){
+  gState=s;
+  ['startScreen','loseScreen','winScreen'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById('hud').classList.remove('on');
+  document.getElementById('shootHint').style.display='none';
+  if(s==='start') document.getElementById('startScreen').classList.add('active');
+  else if(s==='lose') document.getElementById('loseScreen').classList.add('active');
+  else if(s==='win')  document.getElementById('winScreen').classList.add('active');
+  else if(s==='play'){
+    document.getElementById('hud').classList.add('on');
+    document.getElementById('shootHint').style.display='block';
+  }
+}
+
+function triggerStart(){
+  score=0; locIdx=0; obstacles=[]; blasts=[]; particles=[]; popupsList=[];
+  spawnTimer=0; destroyedTypes={}; frame=0;
+  document.getElementById('hudScore').textContent='0';
+  document.getElementById('hudLoc').textContent=ROUTE[0].name;
+  initBg(); showScreen('play'); sfx.start();
+  if(animId) cancelAnimationFrame(animId);
+  loop();
+}
+
+function triggerLose(){
+  if(gState!=='play') return;
+  cancelAnimationFrame(animId);
+  sfx.lose();
+  document.getElementById('loseScore').textContent=`Votes collected: ${score}`;
+  showScreen('lose');
+}
+
+function triggerWin(){
+  if(gState!=='play') return;
+  cancelAnimationFrame(animId);
+  sfx.win();
+  document.getElementById('winScore').textContent=`Total Votes: ${score}`;
+  const list=document.getElementById('resolvedList');
+  list.innerHTML='';
+  Object.keys(destroyedTypes).forEach(lbl=>{
+    const el=document.createElement('div'); el.className='rtag';
+    el.textContent=`${lbl} (x${destroyedTypes[lbl]})`; list.appendChild(el);
+  });
+  showScreen('win');
+}
+
+/* ===================================================
+   INPUT — FIXED: listeners on document, not canvas
+   Space / Enter / ArrowUp keys also shoot
+   =================================================== */
+function doShoot(e){
+  if(e&&e.target&&e.target.tagName==='BUTTON') return;
+  if(gState==='play'){ if(e) e.preventDefault(); spawnBlast(); }
+}
+
+// Click anywhere (not on buttons)
+document.addEventListener('click', doShoot);
+
+// Touch anywhere (not on buttons)
+document.addEventListener('touchstart', function(e){
+  if(e.target&&e.target.tagName==='BUTTON') return;
+  if(gState==='play'){ e.preventDefault(); spawnBlast(); }
+}, {passive:false});
+
+// Keyboard
+document.addEventListener('keydown', function(e){
+  if(e.code==='Space'||e.code==='Enter'||e.code==='ArrowUp'){
+    e.preventDefault();
+    if(gState==='play') spawnBlast();
+  }
+});
+
+/* BUTTONS */
+document.getElementById('startBtn').addEventListener('click',e=>{e.stopPropagation();triggerStart();});
+document.getElementById('retryBtn').addEventListener('click',e=>{e.stopPropagation();triggerStart();});
+document.getElementById('shareBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  const txt=`🏛️ Campus CLEARED! I scored ${score} votes!\nVote Anant Singhal — Ballot No. 2 — IIT (BHU) Student Parliament 🗳️✔`;
+  if(navigator.share) navigator.share({title:'Hostel Hero!',text:txt}).catch(()=>{});
+  else navigator.clipboard.writeText(txt).then(()=>alert('Copied! Share it!')).catch(()=>alert(txt));
+});
+
+/* IDLE CANVAS ON START SCREEN */
+(function idle(){
+  if(gState!=='start'){requestAnimationFrame(idle);return;}
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const g=ctx.createLinearGradient(0,0,0,canvas.height);
+  g.addColorStop(0,'#04041a'); g.addColorStop(1,'#0d0820');
+  ctx.fillStyle=g; ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<90;i++){
+    const sx=((i*139+frame*0.28)%canvas.width);
+    const sy=(i*61)%(canvas.height*0.85);
+    ctx.globalAlpha=0.14+0.55*Math.sin(frame*0.035+i*1.4);
+    ctx.fillStyle='#fff'; ctx.fillRect(sx,sy,1.5,1.5);
+  }
+  ctx.globalAlpha=1; frame++;
+  requestAnimationFrame(idle);
+})();
+</script>
+</body>
+</html>
